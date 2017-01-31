@@ -31,6 +31,7 @@ import org.apache.arrow.vector.schema.{ArrowFieldNode, ArrowRecordBatch}
 import org.apache.arrow.vector.types.{FloatingPointPrecision, TimeUnit}
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types._
 
@@ -42,7 +43,7 @@ private[sql] abstract class ArrowPayload extends Iterator[ArrowRecordBatch]
 /**
  * Class that wraps an Arrow RootAllocator used in conversion
  */
-private[sql] class ArrowConverters {
+private[sql] class ArrowConverters extends Serializable with Logging {
   private val _allocator = new RootAllocator(Long.MaxValue)
 
   private[sql] def allocator: RootAllocator = _allocator
@@ -55,7 +56,11 @@ private[sql] class ArrowConverters {
   }
 
   def internalRowsToPayload(rows: Array[InternalRow], schema: StructType): ArrowPayload = {
+    val start = System.nanoTime
     val batch = ArrowConverters.internalRowsToArrowRecordBatch(rows, schema, allocator)
+    val elapsed = System.nanoTime - start
+    logInfo("Arrow conversion time: " + elapsed)
+    // System.err.println("Arrow conversion time: " + elapsed)
     new ArrowStaticPayload(batch)
   }
 }

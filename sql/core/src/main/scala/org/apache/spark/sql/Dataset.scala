@@ -31,6 +31,7 @@ import org.apache.spark.api.java.JavaRDD
 import org.apache.spark.api.java.function._
 import org.apache.spark.api.python.{PythonRDD, SerDeUtil}
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst._
 import org.apache.spark.sql.catalyst.analysis._
@@ -156,7 +157,7 @@ class Dataset[T] private[sql](
     @transient val sparkSession: SparkSession,
     @DeveloperApi @InterfaceStability.Unstable @transient val queryExecution: QueryExecution,
     encoder: Encoder[T])
-  extends Serializable {
+  extends Serializable with Logging {
 
   queryExecution.assertAnalyzed()
 
@@ -2375,7 +2376,10 @@ class Dataset[T] private[sql](
     val cnvtr = converter.getOrElse(new ArrowConverters)
     withNewExecutionId {
       try {
+        val collect_start = System.nanoTime()
         val collectedRows = queryExecution.executedPlan.executeCollect()
+        val collect_end = System.nanoTime()
+        System.err.println("Time to collect: " + (collect_end - collect_start))
         cnvtr.internalRowsToPayload(collectedRows, this.schema)
       } catch {
         case e: Exception =>
